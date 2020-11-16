@@ -12,8 +12,8 @@ import static org.mule.runtime.api.i18n.I18nMessageFactory.createStaticMessage;
 import static org.mule.runtime.api.meta.model.error.ErrorModelBuilder.newError;
 import static org.mule.runtime.core.api.exception.Errors.Identifiers.CONNECTIVITY_ERROR_IDENTIFIER;
 import static org.mule.runtime.core.api.exception.Errors.Identifiers.RETRY_EXHAUSTED_ERROR_IDENTIFIER;
+
 import org.mule.runtime.api.component.ComponentIdentifier;
-import org.mule.runtime.api.connection.ConnectionException;
 import org.mule.runtime.api.exception.ErrorTypeRepository;
 import org.mule.runtime.api.exception.MuleRuntimeException;
 import org.mule.runtime.api.message.ErrorType;
@@ -26,7 +26,6 @@ import org.mule.runtime.api.meta.model.util.ExtensionWalker;
 import org.mule.runtime.api.meta.model.util.IdempotentExtensionWalker;
 import org.mule.runtime.core.api.exception.Errors;
 import org.mule.runtime.core.api.exception.ExceptionMapper;
-import org.mule.runtime.core.api.retry.policy.RetryPolicyExhaustedException;
 import org.mule.runtime.core.privileged.exception.ErrorTypeLocator;
 import org.mule.runtime.extension.api.dsl.syntax.resolver.DslSyntaxResolver;
 import org.mule.runtime.extension.api.dsl.syntax.resolver.SingleExtensionImportTypesStrategy;
@@ -76,7 +75,7 @@ class ExtensionErrorsRegistrant {
     ErrorModel retryExhaustedError = newError(RETRY_EXHAUSTED_ERROR_IDENTIFIER, errorExtensionNamespace)
         .withParent(newError(RETRY_EXHAUSTED_ERROR_IDENTIFIER, MULE).build()).build();
 
-    errorTypes.forEach(errorModel -> getErrorType(errorModel, extensionModel));
+    // errorTypes.forEach(errorModel -> getErrorType(errorModel, extensionModel));
 
     ExtensionWalker extensionWalker = new IdempotentExtensionWalker() {
 
@@ -92,13 +91,13 @@ class ExtensionErrorsRegistrant {
 
       private void registerErrors(ComponentModel model) {
         if (!errorTypes.isEmpty()) {
-          ExceptionMapper.Builder builder = ExceptionMapper.builder();
-          builder.addExceptionMapping(ConnectionException.class, getErrorType(connectivityErrorModel, extensionModel));
-          builder.addExceptionMapping(RetryPolicyExhaustedException.class, getErrorType(retryExhaustedError, extensionModel));
+          // ExceptionMapper.Builder builder = ExceptionMapper.builder();
+          // builder.addExceptionMapping(ConnectionException.class, getErrorType(connectivityErrorModel, extensionModel));
+          // builder.addExceptionMapping(RetryPolicyExhaustedException.class, getErrorType(retryExhaustedError, extensionModel));
 
-          String elementName = syntaxResolver.resolve(model).getElementName();
-          errorTypeLocator.addComponentExceptionMapper(createIdentifier(elementName, extensionNamespace),
-                                                       builder.build());
+          // String elementName = syntaxResolver.resolve(model).getElementName();
+          // errorTypeLocator.addComponentExceptionMapper(createIdentifier(elementName, extensionNamespace),
+          // builder.build());
         }
       }
     };
@@ -111,6 +110,7 @@ class ExtensionErrorsRegistrant {
     return optionalError.orElseGet(() -> createErrorType(errorModel, identifier, extensionModel));
   }
 
+  // TODO errorRepo move
   private ErrorType createErrorType(ErrorModel errorModel, ComponentIdentifier identifier, ExtensionModel extensionModel) {
     final ErrorType errorType;
 

@@ -20,14 +20,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.junit.MockitoJUnit.rule;
 import static org.mule.runtime.api.component.ComponentIdentifier.builder;
 import static org.mule.runtime.api.meta.model.error.ErrorModelBuilder.newError;
 import static org.mule.runtime.api.util.ExtensionModelTestUtils.visitableMock;
+import static org.mule.runtime.api.util.NameUtils.hyphenize;
 import static org.mule.runtime.core.api.exception.Errors.ComponentIdentifiers.Handleable.SOURCE_RESPONSE_GENERATE;
 import static org.mule.runtime.core.api.exception.Errors.Identifiers.CONNECTIVITY_ERROR_IDENTIFIER;
 import static org.mule.runtime.core.internal.exception.ErrorTypeLocatorFactory.createDefaultErrorTypeLocator;
 import static org.mule.runtime.core.internal.exception.ErrorTypeRepositoryFactory.createDefaultErrorTypeRepository;
 import static org.mule.tck.util.MuleContextUtils.mockContextWithServices;
+
 import org.mule.runtime.api.component.ComponentIdentifier;
 import org.mule.runtime.api.connection.ConnectionException;
 import org.mule.runtime.api.exception.ErrorTypeRepository;
@@ -41,22 +44,21 @@ import org.mule.runtime.api.meta.model.operation.OperationModel;
 import org.mule.runtime.core.api.MuleContext;
 import org.mule.runtime.core.privileged.PrivilegedMuleContext;
 import org.mule.runtime.core.privileged.exception.ErrorTypeLocator;
-import org.mule.runtime.extension.api.util.NameUtils;
 import org.mule.tck.junit4.AbstractMuleTestCase;
 import org.mule.tck.size.SmallTest;
 
 import java.util.Optional;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.MockitoRule;
 
 @SmallTest
-@RunWith(MockitoJUnitRunner.class)
+@Ignore
 public class ExtensionErrorsRegistrantTestCase extends AbstractMuleTestCase {
 
   private static final String TEST_EXTENSION_NAME = "Test Extension";
@@ -69,7 +71,7 @@ public class ExtensionErrorsRegistrantTestCase extends AbstractMuleTestCase {
   private static final String ANY = "ANY";
 
   private static final ComponentIdentifier OPERATION_IDENTIFIER = builder()
-      .name(NameUtils.hyphenize(OPERATION_NAME))
+      .name(hyphenize(OPERATION_NAME))
       .namespace(EXTENSION_PREFIX)
       .build();
 
@@ -91,6 +93,9 @@ public class ExtensionErrorsRegistrantTestCase extends AbstractMuleTestCase {
       newError("CUSTOM", MULE)
           .withParent(newError(ANY, MULE).build()).build();
 
+  @Rule
+  public MockitoRule rule = rule().silent();
+
   @Mock(lenient = true)
   private ExtensionModel extensionModel;
 
@@ -104,7 +109,7 @@ public class ExtensionErrorsRegistrantTestCase extends AbstractMuleTestCase {
   public ExpectedException exception = none();
 
   private ExtensionErrorsRegistrant errorsRegistrant;
-  private MuleContext muleContext = mockContextWithServices();
+  private final MuleContext muleContext = mockContextWithServices();
   private ErrorTypeRepository typeRepository;
   private ErrorTypeLocator typeLocator;
 

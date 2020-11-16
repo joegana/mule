@@ -15,7 +15,6 @@ import static org.mule.runtime.core.internal.exception.ErrorTypeRepositoryFactor
 import static org.mule.test.runner.api.MulePluginBasedLoaderFinder.META_INF_MULE_PLUGIN;
 
 import org.mule.runtime.api.exception.ErrorTypeRepository;
-import org.mule.runtime.api.exception.MuleRuntimeException;
 import org.mule.runtime.api.lifecycle.InitialisationException;
 import org.mule.runtime.api.meta.model.ExtensionModel;
 import org.mule.runtime.api.util.LazyValue;
@@ -27,7 +26,6 @@ import org.mule.runtime.core.internal.registry.MuleRegistry;
 import org.mule.runtime.core.internal.registry.MuleRegistryHelper;
 import org.mule.runtime.core.internal.registry.SimpleRegistry;
 import org.mule.runtime.core.privileged.exception.ErrorTypeLocator;
-import org.mule.runtime.core.privileged.registry.RegistrationException;
 import org.mule.runtime.extension.api.annotation.Extension;
 import org.mule.runtime.extension.api.loader.ExtensionModelLoader;
 import org.mule.runtime.module.extension.internal.manager.DefaultExtensionManager;
@@ -118,12 +116,12 @@ class ExtensionPluginMetadataGenerator {
       private final LazyValue<SimpleRegistry> registryCreator = new LazyValue<>(() -> {
         final SimpleRegistry registry = new SimpleRegistry(this, new MuleLifecycleInterceptor());
 
-        try {
-          registry.registerObject(ErrorTypeRepository.class.getName(), errorTypeRepository);
-          registry.registerObject(ErrorTypeLocator.class.getName(), errorTypeLocator);
-        } catch (RegistrationException e) {
-          throw new MuleRuntimeException(e);
-        }
+        // try {
+        // registry.registerObject(ErrorTypeRepository.class.getName(), errorTypeRepository);
+        // registry.registerObject(ErrorTypeLocator.class.getName(), errorTypeLocator);
+        // } catch (RegistrationException e) {
+        // throw new MuleRuntimeException(e);
+        // }
         return registry;
       });
 

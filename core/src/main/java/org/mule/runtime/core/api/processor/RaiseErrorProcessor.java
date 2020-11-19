@@ -11,6 +11,7 @@ import static org.mule.runtime.api.component.ComponentIdentifier.buildFromString
 import static org.mule.runtime.api.i18n.I18nMessageFactory.createStaticMessage;
 import static org.mule.runtime.api.metadata.DataType.STRING;
 import static org.mule.runtime.core.api.util.StringUtils.isEmpty;
+import static org.slf4j.LoggerFactory.getLogger;
 
 import org.mule.runtime.api.component.AbstractComponent;
 import org.mule.runtime.api.component.ComponentIdentifier;
@@ -25,7 +26,11 @@ import org.mule.runtime.core.api.el.ExtendedExpressionManager;
 import org.mule.runtime.core.api.event.CoreEvent;
 import org.mule.runtime.core.privileged.util.AttributeEvaluator;
 
+import java.util.Optional;
+
 import javax.inject.Inject;
+
+import org.slf4j.Logger;
 
 /**
  * Processor capable of raising errors on demand, given a type and optionally a message.
@@ -33,6 +38,8 @@ import javax.inject.Inject;
  * @since 4.0
  */
 public final class RaiseErrorProcessor extends AbstractComponent implements Processor, Initialisable {
+
+  private static final Logger LOGGER = getLogger(RaiseErrorProcessor.class);
 
   private static final String ERROR_MESSAGE = "An error occurred.";
 
@@ -54,7 +61,9 @@ public final class RaiseErrorProcessor extends AbstractComponent implements Proc
 
     ComponentIdentifier errorTypeComponentIdentifier = buildFromStringRepresentation(typeId);
     errorType = errorTypeRepository.lookupErrorType(errorTypeComponentIdentifier)
-        .orElseThrow(() -> new InitialisationException(createStaticMessage(format("Could not find error '%s'.", typeId)), this));
+        .orElseThrow(() -> new InitialisationException(createStaticMessage(format("Could not find error '%s'.", typeId)),
+                                                       this));
+
     descriptionEvaluator.initialize(expressionManager);
   }
 

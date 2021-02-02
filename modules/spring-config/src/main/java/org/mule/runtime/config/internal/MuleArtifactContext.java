@@ -220,7 +220,7 @@ public class MuleArtifactContext extends AbstractRefreshableConfigApplicationCon
     muleContext.getCustomizationService().overrideDefaultServiceImpl(FEATURE_FLAGGING_SERVICE_KEY, featureFlaggingService);
 
     this.applicationModel = createApplicationModel(artifactDeclaration, artifactConfigResources, featureFlaggingService);
-    errorsBlahBlahBlah(applicationModel);
+    registerErrors(applicationModel);
   }
 
   private ErrorType getErrorType(ErrorTypeRepository errorTypeRepository, ErrorModel errorModel, ExtensionModel extensionModel) {
@@ -330,8 +330,11 @@ public class MuleArtifactContext extends AbstractRefreshableConfigApplicationCon
     doValidateModel(artifactAst);
   }
 
-  protected void errorsBlahBlahBlah(final ArtifactAst artifactAst) {
-    // TODO Need to avoid this before creating the minimal artifact somehow...
+  protected void registerErrors(final ArtifactAst artifactAst) {
+    doRegisterErrors(artifactAst);
+  }
+
+  protected void doRegisterErrors(final ArtifactAst artifactAst) {
     final ErrorTypeRepository errorTypeRepository = artifactAst.getErrorTypeRepository();
     final ErrorTypeLocator errorTypeLocator = createDefaultErrorTypeLocator(errorTypeRepository);
     try {

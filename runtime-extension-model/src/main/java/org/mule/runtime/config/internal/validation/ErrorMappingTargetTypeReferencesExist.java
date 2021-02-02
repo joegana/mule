@@ -32,11 +32,6 @@ import java.util.function.Predicate;
  */
 public class ErrorMappingTargetTypeReferencesExist implements Validation {
 
-  private static final String RAISE_ERROR = "raise-error";
-
-  private static final ComponentIdentifier RAISE_ERROR_IDENTIFIER =
-      builder().namespace(CORE_PREFIX).name(RAISE_ERROR).build();
-
   @Override
   public String getName() {
     return "Error Type references exist";

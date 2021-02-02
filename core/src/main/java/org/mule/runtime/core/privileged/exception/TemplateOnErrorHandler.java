@@ -8,6 +8,7 @@ package org.mule.runtime.core.privileged.exception;
 
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
+import static java.lang.Boolean.getBoolean;
 import static java.util.Arrays.stream;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Collections.singletonList;
@@ -21,7 +22,7 @@ import static org.mule.runtime.api.i18n.I18nMessageFactory.createStaticMessage;
 import static org.mule.runtime.api.notification.EnrichedNotificationInfo.createInfo;
 import static org.mule.runtime.api.notification.ErrorHandlerNotification.PROCESS_END;
 import static org.mule.runtime.api.notification.ErrorHandlerNotification.PROCESS_START;
-import static org.mule.runtime.core.api.config.MuleDeploymentProperties.MULE_LAZY_INIT_DEPLOYMENT_PROPERTY;
+import static org.mule.runtime.api.util.MuleSystemProperties.MULE_LAX_ERROR_TYPES;
 import static org.mule.runtime.core.api.exception.WildcardErrorTypeMatcher.WILDCARD_TOKEN;
 import static org.mule.runtime.core.api.lifecycle.LifecycleUtils.disposeIfNeeded;
 import static org.mule.runtime.core.api.rx.Exceptions.unwrap;
@@ -318,8 +319,16 @@ public abstract class TemplateOnErrorHandler extends AbstractExceptionListener
     super.dispose();
   }
 
+  /**
+   * @deprecated Use {@link #createErrorType(ErrorTypeRepository, String)} instead.
+   */
+  @Deprecated
   public static ErrorTypeMatcher createErrorType(ErrorTypeRepository errorTypeRepository, String errorTypeNames,
                                                  ConfigurationProperties configurationProperties) {
+    return createErrorType(errorTypeRepository, errorTypeNames);
+  }
+
+  public static ErrorTypeMatcher createErrorType(ErrorTypeRepository errorTypeRepository, String errorTypeNames) {
     if (errorTypeNames == null) {
       return null;
     }
@@ -333,10 +342,8 @@ public abstract class TemplateOnErrorHandler extends AbstractExceptionListener
       } else {
         return new SingleErrorTypeMatcher(errorTypeRepository.lookupErrorType(errorTypeComponentIdentifier)
             .orElseGet(() -> {
-              // When lazy init deployment is used an error-mapping may not be initialized due to the component that declares it
-              // could not be part of the minimal application model. So, whenever we found that scenario we have to create the
-              // errorType if not present in the repository already.
-              if (configurationProperties.resolveBooleanProperty(MULE_LAZY_INIT_DEPLOYMENT_PROPERTY).orElse(false)) {
+              if (getBoolean(MULE_LAX_ERROR_TYPES)) {
+                LOGGER.warn("Could not find ErrorType for the given identifier: {}", parsedIdentifier);
                 return ErrorTypeBuilder.builder()
                     .namespace(errorTypeComponentIdentifier.getNamespace())
                     .identifier(errorTypeComponentIdentifier.getName())
@@ -362,32 +369,11 @@ public abstract class TemplateOnErrorHandler extends AbstractExceptionListener
       return true;
     }
 
-    return Objects.equals(WILDCARD_TOKEN, errorTypeIdentifier.getNamespace());
-  }
+    if (Objects.equals(WILDCARD_TOKEN, errorTypeIdentifier.getNamespace())) {
+      return true;
+    }
 
-  /**
-   * @deprecated Use {@link #createErrorType(ErrorTypeRepository, String, ConfigurationProperties)} which handles correctly lazy
-   *             mule artifact contexts.
-   */
-  @Deprecated
-  public static ErrorTypeMatcher createErrorType(ErrorTypeRepository errorTypeRepository, String errorTypeNames) {
-    return createErrorType(errorTypeRepository, errorTypeNames, new ConfigurationProperties() {
-
-      @Override
-      public <T> Optional<T> resolveProperty(String propertyKey) {
-        return Optional.empty();
-      }
-
-      @Override
-      public Optional<Boolean> resolveBooleanProperty(String property) {
-        return Optional.empty();
-      }
-
-      @Override
-      public Optional<String> resolveStringProperty(String property) {
-        return Optional.empty();
-      }
-    });
+    return false;
   }
 
   public void setWhen(String when) {

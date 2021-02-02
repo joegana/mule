@@ -21,7 +21,6 @@ import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Stream.concat;
 import static org.mule.runtime.api.component.ComponentIdentifier.builder;
 import static org.mule.runtime.api.i18n.I18nMessageFactory.createStaticMessage;
-import static org.mule.runtime.api.meta.model.error.ErrorModelBuilder.newError;
 import static org.mule.runtime.api.util.Preconditions.checkArgument;
 import static org.mule.runtime.ast.api.util.AstTraversalDirection.BOTTOM_UP;
 import static org.mule.runtime.ast.api.util.MuleAstUtils.emptyArtifact;
@@ -40,8 +39,6 @@ import static org.mule.runtime.core.api.config.MuleProperties.OBJECT_REGISTRY;
 import static org.mule.runtime.core.api.config.bootstrap.ArtifactType.APP;
 import static org.mule.runtime.core.api.config.bootstrap.ArtifactType.DOMAIN;
 import static org.mule.runtime.core.api.config.bootstrap.ArtifactType.POLICY;
-import static org.mule.runtime.core.api.exception.Errors.Identifiers.CONNECTIVITY_ERROR_IDENTIFIER;
-import static org.mule.runtime.core.api.exception.Errors.Identifiers.RETRY_EXHAUSTED_ERROR_IDENTIFIER;
 import static org.mule.runtime.core.api.lifecycle.LifecycleUtils.disposeIfNeeded;
 import static org.mule.runtime.core.internal.exception.ErrorTypeLocatorFactory.createDefaultErrorTypeLocator;
 import static org.mule.runtime.extension.api.stereotype.MuleStereotypes.APP_CONFIG;
@@ -53,26 +50,19 @@ import static org.springframework.context.annotation.AnnotationConfigUtils.REQUI
 import org.mule.runtime.api.artifact.Registry;
 import org.mule.runtime.api.component.ComponentIdentifier;
 import org.mule.runtime.api.component.ConfigurationProperties;
-import org.mule.runtime.api.connection.ConnectionException;
 import org.mule.runtime.api.exception.ErrorTypeRepository;
 import org.mule.runtime.api.exception.MuleRuntimeException;
 import org.mule.runtime.api.ioc.ConfigurableObjectProvider;
 import org.mule.runtime.api.ioc.ObjectProvider;
 import org.mule.runtime.api.message.ErrorType;
-import org.mule.runtime.api.meta.model.ComponentModel;
 import org.mule.runtime.api.meta.model.ExtensionModel;
 import org.mule.runtime.api.meta.model.config.ConfigurationModel;
-import org.mule.runtime.api.meta.model.construct.ConstructModel;
 import org.mule.runtime.api.meta.model.error.ErrorModel;
-import org.mule.runtime.api.meta.model.operation.OperationModel;
 import org.mule.runtime.api.meta.model.stereotype.HasStereotypeModel;
-import org.mule.runtime.api.meta.model.util.ExtensionWalker;
-import org.mule.runtime.api.meta.model.util.IdempotentExtensionWalker;
 import org.mule.runtime.api.util.Pair;
 import org.mule.runtime.app.declaration.api.ArtifactDeclaration;
 import org.mule.runtime.ast.api.ArtifactAst;
 import org.mule.runtime.ast.api.ComponentAst;
-import org.mule.runtime.ast.api.ComponentParameterAst;
 import org.mule.runtime.ast.api.validation.ValidationResult;
 import org.mule.runtime.ast.api.validation.ValidationResultItem;
 import org.mule.runtime.ast.api.xml.AstXmlParser;
@@ -81,7 +71,6 @@ import org.mule.runtime.config.internal.dsl.model.ClassLoaderResourceProvider;
 import org.mule.runtime.config.internal.dsl.model.SpringComponentModel;
 import org.mule.runtime.config.internal.dsl.model.config.DefaultConfigurationPropertiesResolver;
 import org.mule.runtime.config.internal.dsl.model.config.EnvironmentPropertiesConfigurationProvider;
-import org.mule.runtime.config.internal.dsl.model.extension.xml.property.OperationComponentModelModelProperty;
 import org.mule.runtime.config.internal.dsl.spring.BeanDefinitionFactory;
 import org.mule.runtime.config.internal.editors.MulePropertyEditorRegistrar;
 import org.mule.runtime.config.internal.model.ApplicationModel;
@@ -96,10 +85,7 @@ import org.mule.runtime.core.api.MuleContext;
 import org.mule.runtime.core.api.config.FeatureFlaggingRegistry;
 import org.mule.runtime.core.api.config.FeatureFlaggingService;
 import org.mule.runtime.core.api.config.bootstrap.ArtifactType;
-import org.mule.runtime.core.api.exception.Errors;
-import org.mule.runtime.core.api.exception.ExceptionMapper;
 import org.mule.runtime.core.api.extension.ExtensionManager;
-import org.mule.runtime.core.api.retry.policy.RetryPolicyExhaustedException;
 import org.mule.runtime.core.api.transaction.TransactionManagerFactory;
 import org.mule.runtime.core.api.transformer.Converter;
 import org.mule.runtime.core.api.util.IOUtils;
@@ -114,10 +100,7 @@ import org.mule.runtime.core.internal.util.DefaultResourceLocator;
 import org.mule.runtime.core.privileged.exception.ErrorTypeLocator;
 import org.mule.runtime.core.privileged.registry.RegistrationException;
 import org.mule.runtime.dsl.api.ConfigResource;
-import org.mule.runtime.extension.api.dsl.syntax.resolver.DslSyntaxResolver;
-import org.mule.runtime.extension.api.dsl.syntax.resolver.SingleExtensionImportTypesStrategy;
 import org.mule.runtime.extension.api.property.XmlExtensionModelProperty;
-import org.mule.runtime.module.extension.internal.util.MuleExtensionUtils;
 import org.mule.runtime.properties.api.ConfigurationPropertiesProvider;
 import org.mule.runtime.properties.api.ConfigurationProperty;
 
@@ -237,71 +220,18 @@ public class MuleArtifactContext extends AbstractRefreshableConfigApplicationCon
     muleContext.getCustomizationService().overrideDefaultServiceImpl(FEATURE_FLAGGING_SERVICE_KEY, featureFlaggingService);
 
     this.applicationModel = createApplicationModel(artifactDeclaration, artifactConfigResources, featureFlaggingService);
-    final ErrorTypeRepository errorTypeRepository = this.applicationModel.getErrorTypeRepository();
-    final ErrorTypeLocator errorTypeLocator = createDefaultErrorTypeLocator(errorTypeRepository);
-    try {
-      ((DefaultMuleContext) muleContext).getRegistry().registerObject(ErrorTypeRepository.class.getName(), errorTypeRepository);
-      ((DefaultMuleContext) muleContext).getRegistry().registerObject(ErrorTypeLocator.class.getName(), errorTypeLocator);
-    } catch (RegistrationException e) {
-      throw new MuleRuntimeException(e);
-    }
-    ((DefaultMuleContext) muleContext).setErrorTypeRepository(errorTypeRepository);
-    ((DefaultMuleContext) muleContext).setErrorTypeLocator(errorTypeLocator);
-
-    getExtensions().forEach(extensionModel -> {
-      Set<ErrorModel> errorTypes = extensionModel.getErrorModels();
-      String extensionNamespace = extensionModel.getXmlDslModel().getPrefix();
-      String errorExtensionNamespace = MuleExtensionUtils.getExtensionsNamespace(extensionModel);
-      DslSyntaxResolver syntaxResolver = DslSyntaxResolver.getDefault(extensionModel, new SingleExtensionImportTypesStrategy());
-
-      ErrorModel connectivityErrorModel = newError(CONNECTIVITY_ERROR_IDENTIFIER, errorExtensionNamespace)
-          .withParent(newError(CONNECTIVITY_ERROR_IDENTIFIER, Errors.CORE_NAMESPACE_NAME).build()).build();
-
-      ErrorModel retryExhaustedError = newError(RETRY_EXHAUSTED_ERROR_IDENTIFIER, errorExtensionNamespace)
-          .withParent(newError(RETRY_EXHAUSTED_ERROR_IDENTIFIER, Errors.CORE_NAMESPACE_NAME).build()).build();
-
-      ExtensionWalker extensionWalker = new IdempotentExtensionWalker() {
-
-        @Override
-        protected void onOperation(OperationModel model) {
-          registerErrors(model);
-        }
-
-        @Override
-        protected void onConstruct(ConstructModel model) {
-          registerErrors(model);
-        }
-
-        private void registerErrors(ComponentModel model) {
-          if (!errorTypes.isEmpty()) {
-            ExceptionMapper.Builder builder = ExceptionMapper.builder();
-            builder.addExceptionMapping(ConnectionException.class,
-                                        getErrorType(errorTypeRepository, connectivityErrorModel, extensionModel));
-            builder.addExceptionMapping(RetryPolicyExhaustedException.class,
-                                        getErrorType(errorTypeRepository, retryExhaustedError, extensionModel));
-
-            String elementName = syntaxResolver.resolve(model).getElementName();
-            errorTypeLocator.addComponentExceptionMapper(createIdentifier(elementName, extensionNamespace),
-                                                         builder.build());
-          }
-        }
-      };
-      extensionWalker.walk(extensionModel);
-    });
-
+    errorsBlahBlahBlah(applicationModel);
   }
 
   private ErrorType getErrorType(ErrorTypeRepository errorTypeRepository, ErrorModel errorModel, ExtensionModel extensionModel) {
     ComponentIdentifier identifier = createIdentifier(errorModel.getType(), errorModel.getNamespace());
-    Optional<ErrorType> optionalError = errorTypeRepository.getErrorType(identifier);
-    return optionalError.get();
+    return errorTypeRepository.getErrorType(identifier)
+        .orElseThrow(() -> new IllegalStateException(format("No error '%s' defined", identifier.toString())));
   }
 
   private static ComponentIdentifier createIdentifier(String name, String namespace) {
     return builder().name(name).namespace(namespace).build();
   }
-
-
 
   protected MuleRegistry getMuleRegistry() {
     return this.muleContext.getRegistry();
@@ -398,6 +328,20 @@ public class MuleArtifactContext extends AbstractRefreshableConfigApplicationCon
 
   protected void validateArtifact(final ArtifactAst artifactAst) {
     doValidateModel(artifactAst);
+  }
+
+  protected void errorsBlahBlahBlah(final ArtifactAst artifactAst) {
+    // TODO Need to avoid this before creating the minimal artifact somehow...
+    final ErrorTypeRepository errorTypeRepository = artifactAst.getErrorTypeRepository();
+    final ErrorTypeLocator errorTypeLocator = createDefaultErrorTypeLocator(errorTypeRepository);
+    try {
+      ((DefaultMuleContext) muleContext).getRegistry().registerObject(ErrorTypeRepository.class.getName(), errorTypeRepository);
+      ((DefaultMuleContext) muleContext).getRegistry().registerObject(ErrorTypeLocator.class.getName(), errorTypeLocator);
+    } catch (RegistrationException e) {
+      throw new MuleRuntimeException(e);
+    }
+    ((DefaultMuleContext) muleContext).setErrorTypeRepository(errorTypeRepository);
+    ((DefaultMuleContext) muleContext).setErrorTypeLocator(errorTypeLocator);
   }
 
   private String compToLoc(ComponentAst component) {

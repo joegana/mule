@@ -226,6 +226,9 @@ public class LazyMuleArtifactContext extends MuleArtifactContext
   }
 
   @Override
+  protected void errorsBlahBlahBlah(ArtifactAst artifactAst) {}
+
+  @Override
   protected void prepareBeanFactory(ConfigurableListableBeanFactory beanFactory) {
     super.prepareBeanFactory(beanFactory);
     trackingPostProcessor = new TrackingPostProcessor();
@@ -354,6 +357,7 @@ public class LazyMuleArtifactContext extends MuleArtifactContext
 
       final ArtifactAst minimalApplicationModel = buildMinimalApplicationModel(basePredicate);
       doValidateModel(minimalApplicationModel);
+      super.errorsBlahBlahBlah(minimalApplicationModel);
 
       if (locationOptional.map(loc -> minimalApplicationModel.recursiveStream()
           .noneMatch(comp -> comp.getLocation() != null
